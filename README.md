@@ -17,6 +17,8 @@ To get an idea of what generated stubs look like, see [example][] ([source C cod
  - a `Lib` class specialization with definitions for all globals (functions, variables, constants)
  - an `FFI` class specialization where methods like `new`, `cast` and such are given precise overloads for every C type expression, member name, etc.
 
+The type stubs would ideally be bundled into the resulting cffi package, but can also be used directly by end users.
+
 ## Philosophy
 
 It's best to start using the generated stubs from the start. In particular, you should **not** expect existing code to typecheck out-of-the-box when applying them. The intent of this project isn't to rule out wrong usages of the API and 'stand down' on usages that *could* be correct, but quite the opposite -- to expose a reasonable subset of cffi's API that can actually be checked for correct usage.
@@ -60,13 +62,13 @@ cffi-stub-gen works by interrogating your specific `ffi` object. Because of this
 A simple CLI interface is provided which should be enough for most users; run it passing `-m` and the name of the module to import:
 
 ~~~bash
-cffi-stub-gen -m _foo_cffi
+cffi-stub-gen -m my_lib._foo_cffi
 ~~~
 
 This should be the module that `ffibuilder.compile()` produced, e.g. what you passed in the first argument to `ffibuilder.set_source()`. cffi-stub-gen will import it and fetch its `ffi` attribute. Alternatively you can pass a filesystem path with `-p`:
 
 ~~~bash
-cffi-stub-gen -p TODO
+cffi-stub-gen -p my_lib/_foo_cffi.py
 ~~~
 
 By default, the stubs will be written to a `.pyi` file next to the imported module file. This should cause tools to find them automatically. If this is not desired, pass `-o <output path>`.

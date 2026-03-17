@@ -29,9 +29,3 @@ def write_type_stub(
 		output_path = basename + '.pyi'
 	with open(output_path, 'w') as f:
 		f.write(hints)
-
-def __main__():
-	raise NotImplementedError()
-
-if __name__ == '__main__':
-	__main__()

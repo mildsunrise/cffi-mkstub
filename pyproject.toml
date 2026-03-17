@@ -1,0 +1,25 @@
+[project]
+name = "cffi-stub-gen"
+version = "0.0.1"
+authors = [
+  { name="Alba Mendez", email="me@alba.sh" },
+]
+description = "Type stub generator for cffi modules"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Code Generators",
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+
+[project.scripts]
+cffi-stub-gen = "cffi_stub_gen.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/mildsunrise/cffi-stub-gen"
+Issues = "https://github.com/mildsunrise/cffi-stub-gen/issues"

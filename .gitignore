@@ -1,1 +1,3 @@
 __pycache__
+/build/
+/cffi_stub_gen.egg-info/
