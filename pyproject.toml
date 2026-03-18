@@ -1,5 +1,5 @@
 [project]
-name = "cffi-stub-gen"
+name = "cffi-mkstub"
 version = "0.0.1"
 authors = [
   { name="Alba Mendez", email="me@alba.sh" },
@@ -18,8 +18,8 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 
 [project.scripts]
-cffi-stub-gen = "cffi_stub_gen.__main__:main"
+cffi-mkstub = "cffi_mkstub.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/mildsunrise/cffi-stub-gen"
-Issues = "https://github.com/mildsunrise/cffi-stub-gen/issues"
+Homepage = "https://github.com/mildsunrise/cffi-mkstub"
+Issues = "https://github.com/mildsunrise/cffi-mkstub/issues"

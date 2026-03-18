@@ -1,3 +1,4 @@
 __pycache__
 /build/
-/cffi_stub_gen.egg-info/
+/dist/
+/cffi_mkstub.egg-info/

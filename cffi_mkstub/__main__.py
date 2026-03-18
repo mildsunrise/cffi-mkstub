@@ -5,7 +5,7 @@ from . import write_type_stub
 
 def main():
 	parser = argparse.ArgumentParser(
-		prog='cffi-stub-gen',
+		prog='cffi-mkstub',
 		description='Type stub generator for cffi modules',
 	)
 
