@@ -21,11 +21,12 @@ def write_type_stub(
 
 	if isinstance(module, str):
 		module = importlib.import_module(module)
-	file = module.__file__
-	assert file != None, f'{module!r} has no __file__'
-	basename, _ext = os.path.splitext(file)
-	hints = format_type_hints(module.ffi) + '\n\n' 'ffi: FFI' '\n'
 	if output_path == None:
-		output_path = basename + '.pyi'
+		file = module.__file__
+		assert file != None, f'{module!r} has no __file__'
+		dirname, basename = os.path.split(file)
+		assert '.' in basename
+		output_path = os.path.join(dirname, basename.split('.')[0] + '.pyi')
+	hints = format_type_hints(module.ffi) + '\n\n' 'ffi: FFI' '\n'
 	with open(output_path, 'w') as f:
 		f.write(hints)

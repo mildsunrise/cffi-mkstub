@@ -18,7 +18,7 @@ def main():
 	module = args.module
 	if args.path != None:
 		# https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-		modname = os.path.splitext(os.path.basename(args.path))[0]
+		modname = os.path.basename(args.path).split('.')[0]
 		spec = importlib.util.spec_from_file_location(modname, args.path)
 		module = importlib.util.module_from_spec(spec)
 		spec.loader.exec_module(module)
