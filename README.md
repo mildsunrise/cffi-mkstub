@@ -44,7 +44,7 @@ Despite the above, the aim is still to eventually expose all *functionality* of 
 
 One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older Python versions. It has only been tested with Python 3.14 so far.
 
-Although it should support API mode, for now it has only been tested with the ABI mode so some tweaks may be needed. It has also only been tested with Pylance/PyRight.
+Works in [both ABI and API modes][cffi-modes], but most of the testing has been done on the former, so some wrinkles may still be present when targetting API mode. It has only been tested with Pylance/PyRight so far.
 
 ## Getting started
 
@@ -69,7 +69,7 @@ This should be the module that `ffibuilder.compile()` produced, e.g. what you pa
 cffi-stub-gen -p my_lib/_foo_cffi.py
 ~~~
 
-By default, the stubs will be written to a `.pyi` file next to the imported module file. This should cause tools to find them automatically. If this is not desired, pass `-o <output path>`.
+By default, the stubs will be written to a `.pyi` file next to the imported module file. This should cause tools to find them automatically. If this is not desired (for example, when the original module is in an unwritable system directory) pass `-o <output path>`.
 
 ### Using the stubs
 
@@ -134,6 +134,7 @@ cffi-stub-gen itself is GPL licensed for now, but you are of course free to use 
 
 
 [cffi]: https://cffi.readthedocs.io/
+[cffi-modes]: https://cffi.readthedocs.io/en/stable/overview.html#abi-versus-api
 [stub-files]: https://peps.python.org/pep-0484/#stub-files
 [PEP-484]: https://peps.python.org/pep-0484
 [PEP-563]: https://peps.python.org/pep-0563/

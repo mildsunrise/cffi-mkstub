@@ -28,5 +28,7 @@ def write_type_stub(
 		assert '.' in basename
 		output_path = os.path.join(dirname, basename.split('.')[0] + '.pyi')
 	hints = format_type_hints(module.ffi) + '\n\n' 'ffi: FFI' '\n'
+	if hasattr(module, 'lib'):
+		hints += 'lib: Lib' '\n'
 	with open(output_path, 'w') as f:
 		f.write(hints)

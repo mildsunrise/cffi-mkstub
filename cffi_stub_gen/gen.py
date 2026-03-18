@@ -118,7 +118,7 @@ TypeRef: TypeAlias = Union[
 
 def format_type_hints(
 	ffi: FFI,
-	root_cls_name: str = 'FFI',
+	ffi_cls_name: str = 'FFI',
 	lib_cls_name: str = 'Lib',
 	types_ns_name: str = 'types',
 	indent: str = ' '*4, # pyright: ignore[reportRedeclaration]
@@ -409,5 +409,5 @@ def format_type_hints(
 
 	types_ns_out = f'class {types_ns_name}:\n{indent("\n\n".join(types_defs or ["pass"]))}'
 	lib_cls_out = f'class {lib_cls_name}:\n{indent("\n\n".join(lib_cls_defs or ["pass"]))}'
-	ffi_cls_out = f'class {root_cls_name}(_cffi_backend.FFI):\n{indent("\n\n".join(ffi_defs))}'
+	ffi_cls_out = f'class {ffi_cls_name}(_cffi_backend.FFI):\n{indent("\n\n".join(ffi_defs))}'
 	return f'{IMPORTS}\n\n{types_ns_out}\n\n{lib_cls_out}\n\n{ffi_cls_out}'
