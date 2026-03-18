@@ -3,12 +3,31 @@ from typing import Union, Literal, NoReturn, TypeAlias, TYPE_CHECKING
 import re
 from dataclasses import dataclass
 import textwrap
-import _cffi_backend
+
 if TYPE_CHECKING:
 	from cffi_types import FFI, CType, CGlobal
 else:
-	FFI = _cffi_backend.FFI
-	CType = CGlobal = None
+	FFI = CType = CGlobal = None
+
+# inline ABI mode uses a different (Python backed) FFI object class
+if TYPE_CHECKING:
+	import cffi
+	FFI_api: TypeAlias = cffi.FFI
+else:
+	FFI_api = None
+	try:
+		import cffi
+		FFI_api = cffi.FFI
+	except ImportError:
+		pass
+# in inline ABI mode, the user can request that the ctypes backend
+# be used instead of the normal libffi-based backend (_cffi_backend)
+_cffi_backend = None
+try:
+	import _cffi_backend
+except ImportError as exc:
+	if not FFI_api:
+		raise Exception('neither _cffi_backend nor cffi could be imported') from exc
 
 __all__ = ['format_type_hints']
 
@@ -117,7 +136,7 @@ TypeRef: TypeAlias = Union[
 
 
 def format_type_hints(
-	ffi: FFI,
+	ffi: Union[FFI, FFI_api],
 	ffi_cls_name: str = 'FFI',
 	lib_cls_name: str = 'Lib',
 	types_ns_name: str = 'types',
@@ -133,7 +152,15 @@ def format_type_hints(
 	def gen_type_alias(name: str, expr: str):
 		return f'{name}: TypeAlias = {expr}'
 
-	assert isinstance(ffi, FFI), f'{ffi!r} is not a cffi FFI object'
+	if _cffi_backend and isinstance(ffi, _cffi_backend.FFI):
+		_backend = _cffi_backend
+		_error = _size_error = ffi.error
+	elif FFI_api and isinstance(ffi, FFI_api):
+		_backend = ffi._backend # type: ignore
+		_error = cffi.CDefError
+		_size_error = Exception # FIXME
+	else:
+		raise AssertionError(f'{ffi!r} is not a recognized cffi FFI object, perhaps it uses a different backend?')
 
 	# visit all CTypes, while storing backreferences, starting from globals and named types
 	# ----
@@ -151,7 +178,7 @@ def format_type_hints(
 
 		try:
 			size = ffi.sizeof(cname)
-		except ffi.error:
+		except _size_error:
 			size = None
 		type_size[cname] = size
 
@@ -175,14 +202,14 @@ def format_type_hints(
 
 		if type_size[cname] != None:
 			# register pointer and unsized array to this type, but do not visit them (that'd cause infinite recursion)
-			add_ctype(pct := _cffi_backend.new_pointer_type(ct), None, visit=False)
-			add_ctype(_cffi_backend.new_array_type(pct, None), None, visit=False)
+			add_ctype(pct := _backend.new_pointer_type(ct), None, visit=False)
+			add_ctype(_backend.new_array_type(pct, None), None, visit=False)
 
 	typedefs, structs, unions = ffi.list_types()
 	for name in typedefs:
 		try:
 			add_ctype(ffi.typeof(name), ('typedef', name))
-		except ffi.error as exc:
+		except _error as exc:
 			# finicky, but cffi doesn't really give us anything better
 			if 'is a function type, not a pointer-to-function type' in exc.args[0]:
 				add_ctype(ffi.typeof(name + '*'), ('typedef_ptr', name))

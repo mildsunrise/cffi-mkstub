@@ -52,7 +52,12 @@ Works in [both ABI and API modes][cffi-modes], but most of the testing has been 
 
 ### Generating the stubs
 
-cffi-stub-gen works by interrogating your specific `ffi` object. Because of this, cffi-stub-gen doesn't actually pull cffi as a dependency -- but still presumes `_cffi_backend` to be available for import.
+cffi-stub-gen works by interrogating your specific `ffi` object. Because of this, cffi-stub-gen doesn't actually pull cffi as a dependency -- but because `ffi` objects need to import `_cffi_backend` to function, it presumes that module to be available for import.
+
+<details>
+<summary>ctypes backend support</summary>
+The above is not entirely true; although this is currently not very well supported by cffi, when in in-line ABI mode, cffi can be told to use its ctypes backend (removing any dependency on custom native extensions at all). To support this case, cffi-stub-gen will tolerate `_cffi_backend` failing to import when `cffi` could be imported, and if an in-line ABI FFI object is passed, it will use its undocumented `_backend` property to know which backend was requested.
+</details>
 
 > [!IMPORTANT]
 > Although we try to use documented cffi APIs whenever possible, their current introspection APIs are simply not enough. We have an [open PR][cffi-introspection-apis] that implements more APIs. **This project needs cffi to have that patch applied to run.** Note that the patch is only needed to run the type stub generator; your project can then use the generated type stubs with a vanilla version of cffi, as the (non-introspection) APIs remain unchanged.
