@@ -106,6 +106,7 @@ def sanitize_typedef_name(name: str):
 TypeRef: TypeAlias = Union[
 	tuple[Literal['name'], str], # through type's name (excluding 'enum', 'struct' or 'union')
 	tuple[Literal['typedef'], str], # through typedef
+	tuple[Literal['typedef_ptr'], str], # special case where typedef points to the function type itself, so we added the function pointer type
 	tuple[Literal['global'], CGlobal], # through global
 	# through another type:
 	tuple[Literal['pointer'], CType], # array or pointer type item
@@ -183,7 +184,9 @@ def format_type_hints(
 			add_ctype(ffi.typeof(name), ('typedef', name))
 		except ffi.error as exc:
 			# finicky, but cffi doesn't really give us anything better
-			if not ('is a function type, not a pointer-to-function type' in exc.args[0]):
+			if 'is a function type, not a pointer-to-function type' in exc.args[0]:
+				add_ctype(ffi.typeof(name + '*'), ('typedef_ptr', name))
+			else:
 				raise
 	for name in structs:
 		add_ctype(ffi.typeof('struct ' + name), ('name', name))
@@ -226,7 +229,7 @@ def format_type_hints(
 	anon_counters = { 'struct': 0, 'union': 0, 'function': 0 }
 
 	for cname, (ct, brefs) in ctypes.items():
-		typedefs = [ bref[1] for bref in brefs if bref[0] == 'typedef' ]
+		typedefs = [ bref[1] for bref in brefs if bref[0] == 'typedef' or bref[0] == 'typedef_ptr' ]
 		globals = [ bref[1].name for bref in brefs if bref[0] == 'global' ]
 
 		# extract the type's name, if any (by C rules, it must be unique)
@@ -337,6 +340,7 @@ def format_type_hints(
 
 	def ctype_expr(ct: CType) -> str:
 		typedefs = [ bref[1] for bref in ctypes[ct.cname][1] if bref[0] == 'typedef' ]
+		typedefs += [ bref[1] + ' *' for bref in ctypes[ct.cname][1] if bref[0] == 'typedef_ptr' ]
 		names = [ct.cname] + typedefs
 		return f'Literal[{", ".join(map(repr, names))}]'
 
