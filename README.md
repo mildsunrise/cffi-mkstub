@@ -17,11 +17,11 @@ To get an idea of what generated stubs look like, see [example][] ([source C cod
  - a `Lib` class specialization with definitions for all globals (functions, variables, constants)
  - an `FFI` class specialization where methods like `new`, `cast` and such are given precise overloads for every C type expression, member name, etc.
 
-The type stubs would ideally be bundled into the resulting cffi package, but can also be used directly by end users.
+The type stubs would ideally be bundled into the resulting cffi package, but can also be used directly by end users. Can also be used with in-line mode, see [programmatic generation](#programmatic-generation) below.
 
 ## Philosophy
 
-It's best to start using the generated stubs from the start. In particular, you should **not** expect existing code to typecheck out-of-the-box when applying them. The intent of this project isn't to rule out wrong usages of the API and 'stand down' on usages that *could* be correct, but quite the opposite -- to expose a reasonable subset of cffi's API that can actually be checked for correct usage.
+It's best to start using the generated stubs from the start. In particular, you should **not** expect existing code to typecheck out-of-the-box when applying them. The intent of this project isn't to rule out wrong usages of the API and 'stand down' on usages that *could* be correct, because due to cffi's design, most of your code would fall in the latter category. Instead we aim to expose a reasonable subset of cffi's API that can be reliably checked.
 
 A major consequence of this can be seen in `ffi` methods that accept C type expressions, like `ffi.new('MyStruct_t *')`. cffi will happily parse and normalize your C type expression, so the string `MyStruct_t*` would also work, but this can't possibly be done from a type stub. Therefore, rather than falling back to returning a generic `CData` object if an unrecognized string is passed, the stubs require you to enter the exact (normalized) C type expression. Any difference, like a missing space, triggers a typechecker error. This was deemed a reasonable tradeoff because when using an appropriate language server, you will usually get autocompletion of the accepted strings when writing your code:
 
@@ -31,7 +31,7 @@ Another consequence is type conversions. cffi is very lenient with what it accep
 
 ## Status
 
-Despite the above, the aim is still to eventually expose all *functionality* of cffi (even if through a restricted set of API usages). Even though this project is in the proof of concept stage (and I'm depressed so manage your expectations about my ability to improve and maintain it) it's already functional enough to cover most of the functionality, and I'm using it on my projects. Some limitations:
+Despite the above, the aim is still to eventually expose all *functionality* of cffi (even if through a restricted set of API usages). Even though this project is in the proof of concept stage (and I'm depressed so manage your expectations about my ability to improve and maintain it) it's already functional enough to cover most of the functionality, and I'm using it on my projects. Some notable limitations:
 
  - Pylance (or maybe Pyright itself, or the VSCode extension) seems to be very bad at handling methods with lots of overloads. In particular it freezes when the cursor is inside of a call like `ffi.new()` and it attempts to display the parameters, to the point where I have to restart the language server. Short of cffi adding new per-ctype APIs (which would greatly reduce the number of overloads in a single function) there isn't much we can do to work around it.
 
@@ -42,13 +42,13 @@ Despite the above, the aim is still to eventually expose all *functionality* of 
        ...
    ~~~
 
+ - Included FFI objects (`ffi/ffibuilder.include(other_ffi)`) are currently ignored.
+
 One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older Python versions. It has only been tested with Python 3.14 so far.
 
 Works in [both ABI and API modes][cffi-modes], but most of the testing has been done on the former, so some wrinkles may still be present when targetting API mode. It has only been tested with Pylance/PyRight so far.
 
 ## Getting started
-
-<!-- FIXME: check this section -->
 
 ### Generating the stubs
 
@@ -113,11 +113,55 @@ animals: list['Pointer[Animal_t]'] = []
 ...
 ~~~
 
-<!--
-### Programmatic usage
+### Programmatic generation
 
-TODO
--->
+cffi-stub-gen can also be invoked programmatically through the Python API, which is ideal in e.g. build scripts after compiling with ffibuilder. The simple API (used by the CLI) is `write_type_stub` which takes either a module object or a name to import, and allows overriding the output path through `output_path`:
+
+~~~python
+from cffi_stub_gen import write_type_stub
+write_type_stub('my_lib._foo_cffi')
+
+import external_lib._cffi
+write_type_stub(external_lib._cffi, output_path='external_cffi.pyi')
+~~~
+
+If more control is desired, the `format_type_hints` API can be used directly. This takes the `ffi` object (not the module) and returns Python code as a string, and accepts a number of arguments to customize the output (but not a lot yet). Keep in mind the returned Python code defines the `FFI` and `Lib` classes, but does not assume instances of those to be present in the `ffi` and/or `lib` attributes of your module -- when using this API, you need to declare these yourself:
+
+~~~python
+from cffi_stub_gen import format_type_hints
+from my_lib._foo_cffi import ffi
+
+hints = format_type_hints(ffi, ffi_cls_name='FooFFI', lib_cls_name='FooLib')
+hints += '\n\n' 'ffi: FooFFI' '\n' 'lib: FooLib'
+with open('src/my_lib/_foo_cffi.pyi', 'w') as f:
+    f.write(hints)
+~~~
+
+This API can be used to support [in-line usage][cffi-inline-abi], e.g. with ABI mode:
+
+~~~python
+from typing import TYPE_CHECKING, cast
+from cffi import FFI
+from cffi_stub_gen import format_type_hints
+
+ffi = FFI()
+ffi.cdef("""
+    int printf(const char *format, ...);   // copy-pasted from the man page
+""")
+
+# on the first run (see below) the type stub file will be populated and the typechecker will be able to load it
+with open('build/_gen_ffi_stubs.pyi', 'w') as f:
+    f.write(format_type_hints(ffi))
+if TYPE_CHECKING:
+    from build._gen_ffi_stubs import FFI
+    ffi = cast(FFI, ffi)
+
+lib = ffi.dlopen(None)
+arg = ffi.new("char[]", b"world")
+lib.printf(b"hi there, %s.\n", arg)
+~~~
+
+This could ideally be used as a compact way to generate type stubs (in-line ABI mode doesn't need a working toolchain, a library to link against nor a temporary output directory) to distribute in a stub package and use them later with the compiled module. However keep in mind there are some subtle differences between the four mode combinations in cffi, most notably that in ABI mode no overloads for `def_extern` are generated. In the future we could provide flags to 'simulate' other modes to enable this use case.
 
 ## Wishlist for cffi
 
@@ -140,6 +184,7 @@ cffi-stub-gen itself is GPL licensed for now, but you are of course free to use 
 
 [cffi]: https://cffi.readthedocs.io/
 [cffi-modes]: https://cffi.readthedocs.io/en/stable/overview.html#abi-versus-api
+[cffi-inline-abi]: https://cffi.readthedocs.io/en/stable/overview.html#simple-example-abi-level-in-line
 [stub-files]: https://peps.python.org/pep-0484/#stub-files
 [PEP-484]: https://peps.python.org/pep-0484
 [PEP-563]: https://peps.python.org/pep-0563/
