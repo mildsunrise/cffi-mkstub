@@ -365,10 +365,8 @@ def format_type_hints(
 	)
 
 	def callable_expr(ct: CType):
-		if ct.kind != 'function':
+		if ct.kind != 'function' or ct.ellipsis:
 			return
-		if ct.ellipsis:
-			return # FIXME not supported for now (does cffi even support this?)
 		result_type = 'None' if ct.result.kind == 'void' else type_exprs[ct.result.cname]
 		arg_types = [ type_exprs[arg.cname] for arg in ct.args ]
 		return f'Callable[[{", ".join(arg_types)}], {result_type}]'

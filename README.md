@@ -35,8 +35,6 @@ Despite the above, the aim is still to eventually expose all *functionality* of 
 
  - Pylance (or maybe Pyright itself, or the VSCode extension) seems to be very bad at handling methods with lots of overloads. In particular it freezes when the cursor is inside of a call like `ffi.new()` and it attempts to display the parameters, to the point where I have to restart the language server. Short of cffi adding new per-ctype APIs (which would greatly reduce the number of overloads in a single function) there isn't much we can do to work around it.
 
- - Varadic Python callbacks are not supported yet, i.e. `ffi.callback` or `ffi.def_extern` cannot be used if the C signature has an ellipsis `...`.
-
  - When using `ffi.def_extern`, the name needs to be passed as an argument:
    ~~~python
    @ffi.def_extern('my_callback')
