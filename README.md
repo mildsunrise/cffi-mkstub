@@ -194,5 +194,5 @@ cffi-mkstub itself is GPL licensed for now, but you are of course free to use th
 [PEP-649]: https://peps.python.org/pep-0649/
 [PEP-749]: https://peps.python.org/pep-0749/
 [cffi-introspection-apis]: https://github.com/python-cffi/cffi/pull/231
-[example]: TODO
-[example-source]: TODO
+[example]: https://github.com/mildsunrise/eci-analysis/blob/aeec1e36b231dea0c976abc70781b500e6ead3f6/bindings/_eci_cffi.pyi
+[example-source]: https://github.com/mildsunrise/eci-analysis/blob/aeec1e36b231dea0c976abc70781b500e6ead3f6/synthDrivers/eloquence/eci.h
