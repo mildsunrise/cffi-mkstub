@@ -1,5 +1,5 @@
 import os.path
-from typing import Union, Literal, NoReturn, TypeAlias, TYPE_CHECKING
+from typing import Union, Literal, NoReturn, TypeAlias, TYPE_CHECKING, cast
 import re
 from dataclasses import dataclass
 import textwrap
@@ -161,6 +161,9 @@ def format_type_hints(
 		_size_error = Exception # FIXME
 	else:
 		raise AssertionError(f'{ffi!r} is not a recognized cffi FFI object, perhaps it uses a different backend?')
+
+	if TYPE_CHECKING:
+		ffi = cast(FFI, ffi)
 
 	# visit all CTypes, while storing backreferences, starting from globals and named types
 	# ----
