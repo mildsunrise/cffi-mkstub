@@ -1,6 +1,6 @@
 [project]
 name = "cffi-mkstub"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Alba Mendez", email="me@alba.sh" },
 ]
