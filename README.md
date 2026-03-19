@@ -8,7 +8,8 @@
  - enum members
  - C type expressions passed to `ffi.new`, `ffi.cast` and friends
 
-<!-- TODO: screenshot of stub usage -->
+<img width="1311" height="330" alt="(Screenshot) Autocompletion of lib globals" src="https://github.com/user-attachments/assets/52f6e044-9c9b-4912-baca-59021341a0f4" />
+<img width="1311" height="330" alt="(Screenshot) Feedback when calling a function" src="https://github.com/user-attachments/assets/091e67c3-5d3d-4ee7-b134-6ef40a079e63" />
 
 To get an idea of what generated stubs look like, see [example][] ([source C code][example-source]). They contain:
 
@@ -25,7 +26,7 @@ It's best to start using the generated stubs from the start. In particular, you 
 
 A major consequence of this can be seen in `ffi` methods that accept C type expressions, like `ffi.new('MyStruct_t *')`. cffi will happily parse and normalize your C type expression, so the string `MyStruct_t*` would also work, but this can't possibly be done from a type stub. Therefore, rather than falling back to returning a generic `CData` object if an unrecognized string is passed, the stubs require you to enter the exact (normalized) C type expression. Any difference, like a missing space, triggers a typechecker error. This was deemed a reasonable tradeoff because when using an appropriate language server, you will usually get autocompletion of the accepted strings when writing your code:
 
-TODO
+<img width="675" height="288" alt="(Screenshot) Autocompletion of C type passed to ffi.new()" src="https://github.com/user-attachments/assets/60f63e22-4b20-4be0-b8f4-217a566d3083" />
 
 Another consequence is type conversions. cffi is very lenient with what it accepts, e.g. on a parameter of C type `int` you can pass a Python `int` or an integer CData or an enum CData. The stubs currently only allow `int`, because this is what cffi returns when converting in the other direction.
 
@@ -34,6 +35,8 @@ Another consequence is type conversions. cffi is very lenient with what it accep
 Despite the above, the aim is still to eventually expose all *functionality* of cffi (even if through a restricted set of API usages). Even though this project is in the proof of concept stage (and I'm depressed so manage your expectations about my ability to improve and maintain it) it's already functional enough to cover most of the functionality, and I'm using it on my projects. Some notable limitations:
 
  - Pylance (or maybe Pyright itself, or the VSCode extension) seems to be very bad at handling methods with lots of overloads. In particular it freezes when the cursor is inside of a call like `ffi.new()` and it attempts to display the parameters, to the point where I have to restart the language server. Short of cffi adding new per-ctype APIs (which would greatly reduce the number of overloads in a single function) there isn't much we can do to work around it.
+
+ - When calling `ffi.addressof()` with a field name, Pylance will fail to filter valid names according to the type being passed (it will show all member names of all types). Typechecking still works correctly, i.e. an error will result if the member name of another struct is passed.
 
  - When using `ffi.def_extern`, the name needs to be passed as an argument:
    ~~~python
