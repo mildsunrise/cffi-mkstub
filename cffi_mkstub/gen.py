@@ -151,6 +151,10 @@ def format_type_hints(
 		return textwrap.indent(text, _indent_prefix)
 	def gen_type_alias(name: str, expr: str):
 		return f'{name}: TypeAlias = {expr}'
+	def fmt_docstr(text: str):
+		return f"''' {text} '''"
+	def fmt_c_block(text: str):
+		return '.. code-block:: c' '\n' + indent(text)
 
 	if _cffi_backend and isinstance(ffi, _cffi_backend.FFI):
 		_backend = _cffi_backend
@@ -232,8 +236,31 @@ def format_type_hints(
 		else:
 			assert_never(cglobal)
 
+	cname_position: dict[str, int] = {}
+	# cffi does not expose the ct_name_position, but we can infer it by comparing cname with the array type cname:
+	for cname, (ct, _) in ctypes.items():
+		if type_size[cname] == None:
+			# the method only works for sized types... make an effort for unsized arrays, as those pop up in the wild
+			if ct.kind == 'array' and ct.length == None:
+				cname_position[cname] = pos = cname_position[item_cname := ct.item.cname]
+				assert cname == item_cname[:pos] + '[]' + item_cname[pos:]
+			continue
+		acname = _backend.new_array_type(_backend.new_pointer_type(ct), None).cname
+		pos = [i for i in range(len(cname)+1) if acname == cname[:i] + '[]' + cname[i:]]
+		assert len(pos) == 1, f'unexpected array ctype name {acname!r} from {cname!r}'
+		cname_position[cname], = pos
+
 	# generate code for the types, as well as python expressions to refer to them
 	# ----
+
+	def fmt_var(ct: CType, var_name: str, function: bool = False) -> str:
+		pos = cname_position[ct.cname]
+		pre, post = ct.cname[:pos], ct.cname[pos:]
+		if function:
+			assert ct.kind == 'function' and pre.endswith('(*') and post.startswith(')')
+			pre, post = pre[:-2], post[1:]
+		if pre[-1].isalnum() or pre[-1] == '_': pre += ' '
+		return pre + var_name + post + ';' # FIXME: correct?
 
 	type_exprs: dict[str, str] = {}
 
@@ -279,8 +306,11 @@ def format_type_hints(
 			else:
 				anon_counters[ct.kind] = n = anon_counters[ct.kind] + 1
 				type_expr = f'anon_{ct.kind}_{n}'
-			cls_defs = [ name + ': ' + type_exprs[field.type.cname]
-				for name, field in ct.fields or [] ]
+			size = type_size[cname]
+			cls_defs = [ fmt_docstr(cname + (f' (size = {size})' if size else '')) ]
+			for name, field in ct.fields or []:
+				docstring = '\n' + fmt_docstr('\n' + fmt_c_block(fmt_var(field.type, name)))
+				cls_defs.append(name + ': ' + type_exprs[field.type.cname] + docstring)
 			types_defs.append(f'class {type_expr}({cdata_type}):\n' + indent('\n'.join(cls_defs or ['pass'])))
 			type_expr = types_ident(type_expr)
 		elif ct.kind == 'void':
@@ -310,7 +340,8 @@ def format_type_hints(
 			arg_exprs.extend( f'arg{i}: {type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
 			arg_exprs.append('/')
 			if ct.ellipsis: arg_exprs.append(f'*args: {vararg_type}')
-			cls_defs = f'def __call__({", ".join(arg_exprs)}) -> {result}: ...'
+			docstring = fmt_docstr('function pointer type:\n' + fmt_c_block(cname)) + '\n'
+			cls_defs = docstring + f'def __call__({", ".join(arg_exprs)}) -> {result}: ...'
 			types_defs.append(f'class {ident}({cdata_type}):\n' + indent(cls_defs))
 			type_expr = types_ident(ident)
 		elif ct.kind == 'enum':
@@ -345,16 +376,22 @@ def format_type_hints(
 
 	for name, cglobal in cglobals.items():
 		if cglobal.kind == 'int_constant' or cglobal.kind == 'enum':
-			type_expr = 'int'
+			type_expr = f'Literal[{cglobal.value}]'
+			docstring = ''
 			if cglobal.kind == 'enum':
-				type_expr = type_exprs[enum_elements[name].cname]
-			lib_cls_defs.append(name + ': ' + type_expr + ' = ' + str(cglobal.value))
+				type_expr = type_exprs[cname := enum_elements[name].cname]
+				docstring = '\n' + fmt_docstr(cname + f' (value {cglobal.value})')
+			lib_cls_defs.append(name + ': ' + type_expr + ' = ' + str(cglobal.value) + docstring)
 		elif cglobal.kind == 'function' or cglobal.kind == 'python_function' or cglobal.kind == 'constant':
 			type_expr = type_exprs[cglobal.type.cname]
-			lib_cls_defs.append('@property\n' f'def {name}(self) -> {type_expr}:\n' + indent('...'))
+			stmt = fmt_var(cglobal.type, name, function=cglobal.kind != "constant")
+			docstring = fmt_docstr(f'{cglobal.kind}:\n{fmt_c_block(stmt)}')
+			lib_cls_defs.append('@property\n' f'def {name}(self) -> {type_expr}:\n' + indent(docstring + '\n' '...'))
 		elif cglobal.kind == 'variable':
 			type_expr = type_exprs[cglobal.type.cname]
-			lib_cls_defs.append(name + ': ' + type_expr + ' = ...')
+			stmt = fmt_var(cglobal.type, name)
+			docstring = fmt_docstr(f'{cglobal.kind}:\n{fmt_c_block(stmt)}')
+			lib_cls_defs.append(name + ': ' + type_expr + ' = ...' '\n' + docstring)
 		else:
 			assert_never(cglobal)
 
