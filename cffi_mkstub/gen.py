@@ -301,7 +301,6 @@ def format_type_hints(
 	type_exprs: dict[str, str] = {}
 
 	cdata_type = '_CDataBase'
-	vararg_type = 'VarArg'
 	def types_ident(x: str): return types_ns_name + '.' + x
 
 	types_defs: list[str] = []
@@ -375,7 +374,7 @@ def format_type_hints(
 			arg_exprs = ['self']
 			arg_exprs.extend( f'arg{i}: {type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
 			arg_exprs.append('/')
-			if ct.ellipsis: arg_exprs.append(f'*args: {vararg_type}')
+			if ct.ellipsis: arg_exprs.append(f'*args: {cdata_type}')
 			docstring = fmt_docstr('function pointer type:\n' + fmt_c_block(cname)) + '\n'
 			cls_defs = docstring + f'def __call__({", ".join(arg_exprs)}) -> {result}: ...'
 			types_defs.append(f'class {ident}({cdata_type}):\n' + indent(cls_defs))
@@ -506,7 +505,7 @@ def format_type_hints(
 
 	composites = [ ct for ct, _ in ctypes.values() if ct.kind == 'struct' or ct.kind == 'union' ]
 	def_overloaded('addressof',
-		(f'T: {vararg_type}', 'self, cdata: Pointer[T], index: int, /', 'Pointer[T]'),
+		(f'T', 'self, cdata: Pointer[T], index: int, /', 'Pointer[T]'),
 		# presumably only sized cdata objects can exist in the wild, so this is guaranteed
 		# to return a pointer to sized type and we don't have to restrict it
 		(f'T: {cdata_type}', 'self, cdata: T, /', 'Pointer[T]'),
