@@ -32,7 +32,7 @@ Another consequence is type conversions. cffi is very lenient with what it accep
 
 ## Status
 
-Despite the above, the aim is still to eventually expose all *functionality* of cffi (even if through a restricted set of API usages). Even though this project is in the proof of concept stage (and I'm depressed so manage your expectations about my ability to improve and maintain it) it's already functional enough to cover most of the functionality, and I'm using it on my projects. Some notable limitations:
+Despite the above, the aim is still to eventually expose all *functionality* of cffi (even if through a restricted set of API usages). Even though this project is in the proof of concept stage (and I'm depressed so manage your expectations about my ability to improve and maintain it) it's already mature enough to cover most of the functionality, and I'm using it on my projects. Some notable limitations:
 
  - Pylance (or maybe Pyright itself, or the VSCode extension) seems to be very bad at handling methods with lots of overloads. In particular it freezes when the cursor is inside of a call like `ffi.new()` and it attempts to display the parameters, to the point where I have to restart the language server. Short of cffi adding new per-ctype APIs (which would greatly reduce the number of overloads in a single function) there isn't much we can do to work around it.
 
@@ -47,7 +47,7 @@ Despite the above, the aim is still to eventually expose all *functionality* of 
 
  - Included FFI objects (`ffi/ffibuilder.include(other_ffi)`) are currently ignored.
 
-One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older Python versions. It has only been tested with Python 3.14 so far.
+One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older Python versions. It has only been tested with Python 3.13 so far.
 
 Works in [both ABI and API modes][cffi-modes], but most of the testing has been done on the former, so some wrinkles may still be present when targetting API mode. It has only been tested with Pylance/PyRight so far.
 
@@ -63,7 +63,7 @@ The above is not entirely true; although this is currently not very well support
 </details>
 
 > [!IMPORTANT]
-> Although we try to use documented cffi APIs whenever possible, their current introspection APIs are simply not enough. We have an [open PR][cffi-introspection-apis] that implements more APIs. **This project needs cffi to have that patch applied to run.** Note that the patch is only needed to run the type stub generator; your project can then use the generated type stubs with a vanilla version of cffi, as the (non-introspection) APIs remain unchanged.
+> Although we try to use documented cffi APIs whenever possible, their current introspection APIs are simply not enough. We have an [open PR][cffi-introspection-apis] that implements more APIs. **This project needs cffi to have that patch applied to run.** Note that the patch is only needed to run the type stub generator; your project can then use the generated type stubs with a vanilla version of cffi, as the (non-introspection) APIs remain unchanged. There's also no need for the cffi module to have been built with a patched cffi.
 
 A simple CLI interface is provided which should be enough for most users; run it passing `-m` and the name of the module to import:
 
