@@ -299,6 +299,7 @@ def format_type_hints(
 		return pre + var_name + post + ';' # FIXME: correct?
 
 	type_exprs: dict[str, str] = {}
+	call_arg_type_exprs: dict[str, str] = {}
 
 	cdata_type = '_CDataBase'
 	def types_ident(x: str): return types_ns_name + '.' + x
@@ -372,7 +373,7 @@ def format_type_hints(
 				ident = f'anon_funcptr_{n}'
 			result = 'None' if ct.result.kind == 'void' else type_exprs[ct.result.cname]
 			arg_exprs = ['self']
-			arg_exprs.extend( f'arg{i+1}: {type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
+			arg_exprs.extend( f'arg{i+1}: {call_arg_type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
 			arg_exprs.append('/')
 			if ct.ellipsis: arg_exprs.append(f'*args: {cdata_type}')
 			docstring = fmt_docstr('function pointer type:\n' + fmt_c_block(cname)) + '\n'
@@ -388,7 +389,10 @@ def format_type_hints(
 		else:
 			assert_never(ct)
 
-		type_exprs[cname] = type_expr
+		type_exprs[cname] = call_arg_type_exprs[cname] = type_expr
+		if ct.kind == 'pointer' and ct.item.kind == 'primitive' and \
+			(base_ptype := PRIMITIVES[ct.item.cname].expr) in {'str', 'bytes'}:
+			call_arg_type_exprs[cname] = f'Union[{type_expr}, {base_ptype}]'
 
 		for typedef in typedefs:
 			types_defs.append(gen_type_alias(sanitize_typedef_name(typedef), type_expr))
