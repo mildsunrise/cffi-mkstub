@@ -372,7 +372,7 @@ def format_type_hints(
 				ident = f'anon_funcptr_{n}'
 			result = 'None' if ct.result.kind == 'void' else type_exprs[ct.result.cname]
 			arg_exprs = ['self']
-			arg_exprs.extend( f'arg{i}: {type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
+			arg_exprs.extend( f'arg{i+1}: {type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
 			arg_exprs.append('/')
 			if ct.ellipsis: arg_exprs.append(f'*args: {cdata_type}')
 			docstring = fmt_docstr('function pointer type:\n' + fmt_c_block(cname)) + '\n'
