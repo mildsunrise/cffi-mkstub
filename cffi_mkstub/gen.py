@@ -185,6 +185,8 @@ def format_type_hints(
 		return textwrap.indent(text, _indent_prefix)
 	def gen_type_alias(name: str, expr: str):
 		return f'{name}: TypeAlias = {expr}'
+	def gen_literal(*values: Union[int, str, bool]):
+		return f'Literal[{", ".join(map(repr, values))}]'
 	def fmt_docstr(text: str):
 		return f"''' {text} '''"
 	def fmt_c_block(text: str):
@@ -439,11 +441,10 @@ def format_type_hints(
 		fdef = '\n'.join('@overload\n' f'def {name}{f"[{o[0]}]" if len(o) == 3 else ""}({o[-2]}) -> {o[-1]}: ...' for o in overloads)
 		ffi_defs.append(fdef)
 
-	def ctype_expr(ct: CType) -> str:
+	def ctype_names(ct: CType) -> list[str]:
 		typedefs = [ bref[1] for bref in ctypes[ct.cname][1] if bref[0] == 'typedef' ]
 		typedefs += [ bref[1] + ' *' for bref in ctypes[ct.cname][1] if bref[0] == 'typedef_ptr' ]
-		names = [ct.cname] + typedefs
-		return f'Literal[{", ".join(map(repr, names))}]'
+		return [ct.cname, *typedefs]
 
 	def initializer_expr(ct: CType):
 		if ct.kind != 'pointer' and ct.kind != 'array':
@@ -465,7 +466,7 @@ def format_type_hints(
 		return f'Union[int, {init}]'
 
 	def_overloaded('new',
-		*( (f'self, ctype: {ctype_expr(ct)}, init: {init}, /', type_exprs[ct.cname])
+		*( (f'self, ctype: {gen_literal(*ctype_names(ct))}, init: {init}, /', type_exprs[ct.cname])
 			for ct, _ in ctypes.values() if (init := initializer_expr(ct)) != None ),
 	)
 
@@ -477,23 +478,30 @@ def format_type_hints(
 		return f'Callable[[{", ".join(arg_types)}], {result_type}]'
 
 	def_overloaded('def_extern',
-		*( (f'self, name: Literal[{name!r}], error: Any = ..., onerror: ErrorCallback = ...', f'Callable[[{cexpr}], {cexpr}]')
+		*( (f'self, name: {gen_literal(name)}, error: Any = ..., onerror: ErrorCallback = ...', f'Callable[[{cexpr}], {cexpr}]')
 			for name, cg in cglobals.items() if cg.kind == 'python_function' and (cexpr := callable_expr(cg.type)) )
 	)
 
 	def_overloaded('callback',
-		*( (f'self, ctype: {ctype_expr(ct)}, error: Any = ..., onerror: ErrorCallback = ...',
+		*( (f'self, ctype: {gen_literal(*ctype_names(ct))}, error: Any = ..., onerror: ErrorCallback = ...',
 	  		f'Callable[[{cexpr}], {type_exprs[ct.cname]}]')
 			for ct, _ in ctypes.values() if (cexpr := callable_expr(ct)) != None )
 	)
 
-	def_overloaded('cast',
-		# this is here exclusively to provide an API to obtain numeric value from pointer.
-		# it's intended to be immediately followed with int(), since IntPrimitive isn't actually accepted anywhere (int is)
-		("self, cdata: Literal['uintptr_t', 'intptr_t', 'size_t'], value: Union[int, PointerBase[Any]], /", 'IntPrimitive'),
-		# FIXME: for now this only supports int and pointer types
-		*( (f'self, ctype: {ctype_expr(ct)}, value: Union[int, PointerBase[Any]], /', type_exprs[ct.cname])
+	integral_primitives = [name for name, p in PRIMITIVES.items() if p.expr in {'int', 'bool'} or 'char' in name]
+	cast_overloads = [
+		# FIXME: for now only primitives and pointers are supported
+		('IntPrimitive', [*integral_primitives, 'bool'],
+			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive', 'PointerBase[Any]']),
+		('FloatPrimitive', ["float", "double", "long double"],
+			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive']),
+		('ComplexPrimitive', ['float _Complex', 'double _Complex', '_cffi_float_complex_t', '_cffi_double_complex_t'],
+			['complex', 'ComplexPrimitive', 'int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive']),
+		*( (type_exprs[ct.cname], ctype_names(ct), ['int', 'IntPrimitive', 'PointerBase[Any]'])
 			for ct, _ in ctypes.values() if ct.kind == 'pointer' or ct.kind == 'function' ),
+	]
+	def_overloaded('cast',
+		*( (f'self, ctype: {gen_literal(*ctypes)}, value: Union[{", ".join(src)}], /', dst) for dst, ctypes, src in cast_overloads )
 	)
 
 	composites = [ ct for ct, _ in ctypes.values() if ct.kind == 'struct' or ct.kind == 'union' ]
