@@ -47,6 +47,8 @@ with open(os.path.join(_dirname, '_stub_preamble.pyi')) as f:
 FFI_DEFS = '''
 CData: TypeAlias = _CDataBase
 
+NULL: PointerBase[object]
+
 def dlclose(self, lib: Lib, /) -> None: ...
 if sys.platform == "win32":
 	def dlopen(self, libpath: str | FFI.CData, flags: int = ..., /) -> Lib: ...
@@ -493,18 +495,22 @@ def format_type_hints(
 
 	integral_primitives = [name for name, p in PRIMITIVES.items() if p.expr in {'int', 'bool'} or 'char' in name]
 	cast_overloads = [
-		# FIXME: for now only primitives and pointers are supported
+		# FIXME: for now only primitives, enums and pointers are supported
 		('IntPrimitive', [*integral_primitives, 'bool'],
-			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive', 'PointerBase[Any]']),
+			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]']),
 		('FloatPrimitive', ["float", "double", "long double"],
 			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive']),
 		('ComplexPrimitive', ['float _Complex', 'double _Complex', '_cffi_float_complex_t', '_cffi_double_complex_t'],
 			['complex', 'ComplexPrimitive', 'int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive']),
-		*( (type_exprs[ct.cname], ctype_names(ct), ['int', 'IntPrimitive', 'PointerBase[Any]'])
+		('EnumCData', [name for name, (ct, _) in ctypes.items() if ct.kind == 'enum'],
+			['int', 'IntPrimitive', 'bool']),
+		*( (type_exprs[ct.cname], [ct.cname], ['int', 'IntPrimitive', 'PointerBase[object]'])
 			for ct, _ in ctypes.values() if ct.kind == 'pointer' or ct.kind == 'function' ),
 	]
+	def expand_cnames(cnames: list[str]):
+		return ( x for cname in cnames for x in (ctype_names(ctypes[cname][0]) if cname in ctypes else [cname]) )
 	def_overloaded('cast',
-		*( (f'self, ctype: {gen_literal(*ctypes)}, value: Union[{", ".join(src)}], /', dst) for dst, ctypes, src in cast_overloads )
+		*( (f'self, ctype: {gen_literal(*expand_cnames(dst_types))}, value: Union[{", ".join(src)}], /', dst) for dst, dst_types, src in cast_overloads )
 	)
 
 	composites = [ ct for ct, _ in ctypes.values() if ct.kind == 'struct' or ct.kind == 'union' ]
@@ -517,6 +523,23 @@ def format_type_hints(
 		*( (f'self, cdata: {type_exprs[ct.cname]}, field: Literal[{name!r}], /',
 	  		('Pointer' if type_size[ct.cname] != None else 'PointerBase') + '[' + type_exprs[field.type.cname] + ']')
 			for ct in composites for name, field in ct.fields or [] )
+	)
+
+	def_overloaded('string',
+		# FIXME: this is a bit of a hack. ffi.string() works with pointers to char, returning a bytes.
+		# but it also works with pointers to unsigned char or signed char. these are autoconverted to
+		# `int`, so we currently define them as type aliases to `int`... and allowing `Pointer[int]`
+		# here would accept any integer, of any width, which is not good... for now, require the user
+		# to cast e.g. `unsigned char *` to `char *` first
+		('self, cdata: Pointer[bytes], maxlength: int = -1', 'bytes'),
+		('self, cdata: Pointer[str], maxlength: int = -1', 'str'),
+		# not supporting the char/wchar cdata input case -- again, we have no way to detect that specifically
+		('self, cdata: EnumCData', 'str') # cffi allows & ignores maxlength in this case, but passing it is a probable bug so let's forbid it
+	)
+	def_overloaded('unpack',
+		('self, cdata: Pointer[bytes], length: int', 'bytes'), # same hack as above applies here
+		('self, cdata: Pointer[str], length: int', 'str'),
+		('T', 'self, cdata: Pointer[T], length: int', 'list[T]'),
 	)
 
 	types_ns_out = f'class {types_ns_name}:\n{indent("\n\n".join(types_defs or ["pass"]))}'
