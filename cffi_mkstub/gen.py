@@ -46,6 +46,7 @@ with open(os.path.join(_dirname, '_stub_preamble.pyi')) as f:
 # longer be needed
 FFI_DEFS = '''
 CData: TypeAlias = _CDataBase
+buffer: TypeAlias = _tmp_buffer  # noqa: Y042
 
 NULL: PointerBase[object]
 
