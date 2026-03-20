@@ -65,28 +65,62 @@ class PrimitiveData:
 	docs: Union[str, None]
 	''' docstring to add to the type alias, if any '''
 
-# FIXME: i'm writing this from memory right now, will likely be incomplete, should check backend source
 def _gen_primitives():
 	dst: dict[str, PrimitiveData] = {}
 	for k, v in {
-		'bool': 'bool',
+		'_Bool': 'bool',
+		'char': ('bytes', 'bytes of length 1'),
+
+		'signed char': 'int',
 		'short': 'int',
 		'int': 'int',
 		'long': 'int',
+		'long long': 'int',
+		'unsigned char': 'int',
 		'unsigned short': 'int',
 		'unsigned int': 'int',
 		'unsigned long': 'int',
-		'size_t': 'int',
+		'unsigned long long': 'int',
+
+		'uint8_t': 'int',
+		'int8_t': 'int',
+		'int16_t': 'int',
+		'uint16_t': 'int',
+		'int32_t': 'int',
+		'uint32_t': 'int',
+		'int64_t': 'int',
+		'uint64_t': 'int',
 		'uintptr_t': 'int',
 		'intptr_t': 'int',
+		'ptrdiff_t': 'int',
+		'size_t': 'int',
+		'ssize_t': 'int',
+		'int_least8_t': 'int',
+		'uint_least8_t': 'int',
+		'int_least16_t': 'int',
+		'uint_least16_t': 'int',
+		'int_least32_t': 'int',
+		'uint_least32_t': 'int',
+		'int_least64_t': 'int',
+		'uint_least64_t': 'int',
+		'int_fast8_t': 'int',
+		'uint_fast8_t': 'int',
+		'int_fast16_t': 'int',
+		'uint_fast16_t': 'int',
+		'int_fast32_t': 'int',
+		'uint_fast32_t': 'int',
+		'int_fast64_t': 'int',
+		'uint_fast64_t': 'int',
+		'intmax_t': 'int',
+		'uintmax_t': 'int',
+
 		'float': 'float',
 		'double': 'float',
-		'float _Complex': 'complex',
-		'double _Complex': 'complex',
-		'char': ('bytes', 'bytes of length 1'),
-		'unsigned char': ('bytes', 'bytes of length 1'),
-		'uint8_t': ('bytes', 'bytes of length 1'),
-		'int8_t': ('bytes', 'bytes of length 1'),
+		'_cffi_float_complex_t': 'complex',
+		'_cffi_double_complex_t': 'complex',
+
+		'long double': 'FloatPrimitive',
+
 		'wchar_t': ('str', 'string of length 1'),
 		'char16_t': ('str', 'string of length 1'),
 		'char32_t': ('str', 'string of length 1'),
@@ -95,7 +129,7 @@ def _gen_primitives():
 		if isinstance(v, tuple):
 			v, docs = v
 		ident_name = k.replace(' ', '_')
-		if k == v: ident_name = None
+		if k == v or v == 'bool': ident_name = None
 		v = PrimitiveData(ident_name, v, docs)
 		dst[k] = v
 	return dst
@@ -420,7 +454,7 @@ def format_type_hints(
 		if ct.kind == 'pointer':
 			return f'{item_init} = ...'
 		init = f'tuple[{item_init}, ...]'
-		if ct.item.cname in {'char', 'unsigned char', 'uint8_t', 'int8_t'}:
+		if ct.item.cname in {'char', 'signed char', 'unsigned char', 'uint8_t', 'int8_t'}:
 			init = f'Union[bytes, {init}]'
 		if ct.item.cname in {'wchar_t', 'char16_t', 'char32_t'}:
 			init = f'Union[str, {init}]'
