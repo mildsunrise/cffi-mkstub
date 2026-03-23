@@ -9,25 +9,26 @@ if TYPE_CHECKING:
 else:
 	FFI = CType = CGlobal = None
 
-# inline ABI mode uses a different (Python backed) FFI object class
 if TYPE_CHECKING:
 	import cffi
 	FFI_api: TypeAlias = cffi.FFI
+	import _cffi_backend
 else:
+	# inline ABI mode uses a different (Python backed) FFI object class
 	FFI_api = None
 	try:
 		import cffi
 		FFI_api = cffi.FFI
 	except ImportError:
 		pass
-# in inline ABI mode, the user can request that the ctypes backend
-# be used instead of the normal libffi-based backend (_cffi_backend)
-_cffi_backend = None
-try:
-	import _cffi_backend
-except ImportError as exc:
-	if not FFI_api:
-		raise Exception('neither _cffi_backend nor cffi could be imported') from exc
+	# in inline ABI mode, the user can request that the ctypes backend
+	# be used instead of the normal libffi-based backend (_cffi_backend)
+	_cffi_backend = None
+	try:
+		import _cffi_backend
+	except ImportError as exc:
+		if not FFI_api:
+			raise Exception('neither _cffi_backend nor cffi could be imported') from exc
 
 __all__ = ['format_type_hints']
 
@@ -70,7 +71,7 @@ class PrimitiveData:
 
 def _gen_primitives():
 	dst: dict[str, PrimitiveData] = {}
-	for k, v in {
+	entry_src: dict[str, Union[str, tuple[str, str]]] = {
 		'_Bool': 'bool',
 		'char': ('bytes', 'bytes of length 1'),
 
@@ -127,7 +128,8 @@ def _gen_primitives():
 		'wchar_t': ('str', 'string of length 1'),
 		'char16_t': ('str', 'string of length 1'),
 		'char32_t': ('str', 'string of length 1'),
-	}.items():
+	}
+	for k, v in entry_src.items():
 		docs = None
 		if isinstance(v, tuple):
 			v, docs = v
@@ -207,6 +209,7 @@ def format_type_hints(
 
 	if TYPE_CHECKING:
 		ffi = cast(FFI, ffi)
+		_backend = cast(_cffi_backend, _backend)
 
 	# visit all CTypes, while storing backreferences, starting from globals and named types
 	# ----

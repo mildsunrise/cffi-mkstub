@@ -62,20 +62,35 @@ CType: TypeAlias = Union[_CTypeEnum, _CTypePrimitive, _CTypePointer, _CTypeArray
 
 class _CGlobalInt(Protocol):
 	name: str
-	kind: Literal['int_constant', 'enum']
+	kind: Literal['int_constant']
 	value: int
 
-class _CGlobalData(Protocol):
+class _CGlobalEnum(Protocol):
 	name: str
-	kind: Literal['constant', 'variable']
+	kind: Literal['enum']
+	value: int
+
+class _CGlobalConstant(Protocol):
+	name: str
+	kind: Literal['constant']
+	type: CType
+
+class _CGlobalVariable(Protocol):
+	name: str
+	kind: Literal['variable']
 	type: CType
 
 class _CGlobalFunc(Protocol):
 	name: str
-	kind: Literal['function', 'python_function']
+	kind: Literal['function']
 	type: _CTypeFunction
 
-CGlobal: TypeAlias = Union[_CGlobalInt, _CGlobalData, _CGlobalFunc]
+class _CGlobalPythonFunc(Protocol):
+	name: str
+	kind: Literal['python_function']
+	type: _CTypeFunction
+
+CGlobal: TypeAlias = Union[_CGlobalInt, _CGlobalEnum, _CGlobalConstant, _CGlobalVariable, _CGlobalFunc, _CGlobalPythonFunc]
 
 class FFI(_cffi_backend.FFI):
 	@property
