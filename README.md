@@ -47,7 +47,7 @@ Despite the above, the aim is still to eventually expose all *functionality* of 
 
  - Included FFI objects (`ffi/ffibuilder.include(other_ffi)`) are currently ignored.
 
-One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older Python versions. It has only been tested with Python 3.13 so far.
+One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older typecheckers / Python runtimes. It has only been tested with Python 3.13 so far.
 
 Works in [both ABI and API modes][cffi-modes], but most of the testing has been done on the former, so some wrinkles may still be present when targetting API mode. It has only been tested with Pylance/PyRight so far.
 
@@ -194,5 +194,5 @@ cffi-mkstub itself is GPL licensed for now, but you are of course free to use th
 [PEP-649]: https://peps.python.org/pep-0649/
 [PEP-749]: https://peps.python.org/pep-0749/
 [cffi-introspection-apis]: https://github.com/python-cffi/cffi/pull/231
-[example]: https://github.com/mildsunrise/eci-analysis/blob/aeec1e36b231dea0c976abc70781b500e6ead3f6/bindings/_eci_cffi.pyi
-[example-source]: https://github.com/mildsunrise/eci-analysis/blob/aeec1e36b231dea0c976abc70781b500e6ead3f6/synthDrivers/eloquence/eci.h
+[example]: https://github.com/mildsunrise/eci-analysis/blob/2d142a9421984648e337ef20251b96fbde69230c/bindings/_eci_cffi.pyi
+[example-source]: https://github.com/mildsunrise/eci-analysis/blob/2d142a9421984648e337ef20251b96fbde69230c/synthDrivers/eloquence/eci.h
