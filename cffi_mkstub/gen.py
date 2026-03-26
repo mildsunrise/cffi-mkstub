@@ -328,7 +328,11 @@ def format_type_hints(
 			type_expr = types_ident(pdata.ident_name)
 		type_exprs[cname] = type_expr
 
-	anon_counters = { 'struct': 0, 'union': 0, 'function': 0 }
+	anon_counters: dict[str, dict[str, int]] = { 'struct': {}, 'union': {}, 'function': {} }
+	def get_anon_name(ct: CType):
+		counter = anon_counters[ct.kind]
+		n = counter.setdefault(ct.cname, len(counter))
+		return f'anon_{ct.kind}_{n}'
 
 	def process_type(cname: str) -> tuple[str, str, list[Callable[[], str]]]:
 		ct, brefs = ctypes[cname]
@@ -351,8 +355,7 @@ def format_type_hints(
 				ident = sanitize_typedef_name(typedefs[0])
 				typedefs = []
 			else:
-				anon_counters[ct.kind] = n = anon_counters[ct.kind] + 1
-				ident = f'anon_{ct.kind}_{n}'
+				ident = get_anon_name(ct)
 			def delayed_def():
 				size = type_size[cname]
 				cls_defs = [ fmt_docstr(cname + (f' (size = {size})' if size else '')) ]
@@ -381,8 +384,7 @@ def format_type_hints(
 			elif len(globals) == 1:
 				ident = 'sym_' + globals[0]
 			else:
-				anon_counters[ct.kind] = n = anon_counters[ct.kind] + 1
-				ident = f'anon_funcptr_{n}'
+				ident = get_anon_name(ct)
 			result = 'None' if ct.result.kind == 'void' else type_exprs[ct.result.cname]
 			arg_exprs = ['self']
 			arg_exprs.extend( f'arg{i+1}: {type_codegen_data[arg.cname][1]}' for i, arg in enumerate(ct.args) )
