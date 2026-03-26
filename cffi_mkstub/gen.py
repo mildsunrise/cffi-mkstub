@@ -1,5 +1,5 @@
 import os.path
-from typing import Union, Literal, NoReturn, TypeAlias, TYPE_CHECKING, cast
+from typing import Callable, Union, Literal, NoReturn, TypeAlias, TYPE_CHECKING, cast
 import re
 from dataclasses import dataclass
 import textwrap
@@ -36,6 +36,12 @@ _dirname = os.path.dirname(__file__)
 
 def assert_never(arg: NoReturn) -> NoReturn:
 	raise AssertionError("Expected code to be unreachable")
+
+class keydefaultdict[K, V](dict[K, V]):
+	def __init__(self, missing: Callable[[K], V]):
+		self.missing = missing
+	def __missing__(self, key: K) -> V:
+		return self.missing(key)
 
 # imports to put at the top of our type hints.
 with open(os.path.join(_dirname, '_stub_preamble.pyi')) as f:
@@ -304,8 +310,7 @@ def format_type_hints(
 		if pre[-1].isalnum() or pre[-1] == '_': pre += ' '
 		return pre + var_name + post + ';' # FIXME: correct?
 
-	type_exprs: dict[str, str] = {}
-	call_arg_type_exprs: dict[str, str] = {}
+	type_exprs: dict[str, str] = keydefaultdict(lambda key: type_codegen_data[key][0])
 
 	cdata_type = '_CDataBase'
 	def types_ident(x: str): return types_ns_name + '.' + x
@@ -327,9 +332,11 @@ def format_type_hints(
 
 	anon_counters = { 'struct': 0, 'union': 0, 'function': 0 }
 
-	for cname, (ct, brefs) in ctypes.items():
+	def process_type(cname: str) -> tuple[str, str, list[Callable[[], str]]]:
+		ct, brefs = ctypes[cname]
 		typedefs = [ bref[1] for bref in brefs if bref[0] == 'typedef' or bref[0] == 'typedef_ptr' ]
 		globals = [ bref[1].name for bref in brefs if bref[0] == 'global' ]
+		types_defs: list[Union[str, Callable[[], str]]] = []
 
 		# extract the type's name, if any (by C rules, it must be unique)
 		type_name = [ bref[1] for bref in brefs if bref[0] == 'name' ]
@@ -356,8 +363,7 @@ def format_type_hints(
 			types_defs.append(f'class {type_expr}({cdata_type}):\n' + indent('\n'.join(cls_defs or ['pass'])))
 			type_expr = types_ident(type_expr)
 		elif ct.kind == 'void':
-			assert cname == 'void' # special case: we'll handle it where it appears
-			continue
+			raise AssertionError('tried to invoke codegen for void type')
 		elif ct.kind == 'pointer' or ct.kind == 'array':
 			if (size := type_size[ct.item.cname]) == None:
 				assert ct.kind == 'pointer'
@@ -379,7 +385,7 @@ def format_type_hints(
 				ident = f'anon_funcptr_{n}'
 			result = 'None' if ct.result.kind == 'void' else type_exprs[ct.result.cname]
 			arg_exprs = ['self']
-			arg_exprs.extend( f'arg{i+1}: {call_arg_type_exprs[arg.cname]}' for i, arg in enumerate(ct.args) )
+			arg_exprs.extend( f'arg{i+1}: {type_codegen_data[arg.cname][1]}' for i, arg in enumerate(ct.args) )
 			arg_exprs.append('/')
 			if ct.ellipsis: arg_exprs.append(f'*args: {cdata_type}')
 			docstring = fmt_docstr('function pointer type:\n' + fmt_c_block(cname)) + '\n'
@@ -395,13 +401,23 @@ def format_type_hints(
 		else:
 			assert_never(ct)
 
-		type_exprs[cname] = call_arg_type_exprs[cname] = type_expr
+		call_arg_type_expr = type_expr
 		if ct.kind == 'pointer' and ct.item.kind == 'primitive' and \
 			(base_ptype := PRIMITIVES[ct.item.cname].expr) in {'str', 'bytes'}:
-			call_arg_type_exprs[cname] = f'Union[{type_expr}, {base_ptype}]'
+			call_arg_type_expr = f'Union[{type_expr}, {base_ptype}]'
 
 		for typedef in typedefs:
 			types_defs.append(gen_type_alias(sanitize_typedef_name(typedef), type_expr))
+
+		types_defs_2 = [ (lambda x: lambda: x)(x) if isinstance(x, str) else x for x in types_defs ]
+		return type_expr, call_arg_type_expr, types_defs_2
+
+	type_codegen_data = keydefaultdict(process_type)
+	for cname in ctypes:
+		if ctypes[cname][0].kind == 'void':
+			assert cname == 'void' # special case: we'll handle it where it appears
+			continue
+		types_defs.extend( x() for x in type_codegen_data[cname][2] )
 
 	# generate code for globals
 
