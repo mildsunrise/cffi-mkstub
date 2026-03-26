@@ -252,8 +252,6 @@ def format_type_hints(
 				add_ctype(arg, ('arg', ct, i))
 		else:
 			assert_never(ct)
-		# order ourselves after our dependencies, for code generation
-		ctypes[cname] = ctypes.pop(cname)
 
 		if type_size[cname] != None:
 			# register pointer and unsized array to this type, but do not visit them (that'd cause infinite recursion)
@@ -347,21 +345,23 @@ def format_type_hints(
 			type_expr = type_exprs[cname] # already processed, we just need the typedefs
 		elif ct.kind == 'struct' or ct.kind == 'union':
 			if type_name:
-				type_expr = ct.kind + '_' + type_name
+				ident = ct.kind + '_' + type_name
 			elif len(typedefs) == 1:
 				# because of C rules, we positively know that this anonymous struct was defined in this typedef
-				type_expr = sanitize_typedef_name(typedefs[0])
+				ident = sanitize_typedef_name(typedefs[0])
 				typedefs = []
 			else:
 				anon_counters[ct.kind] = n = anon_counters[ct.kind] + 1
-				type_expr = f'anon_{ct.kind}_{n}'
-			size = type_size[cname]
-			cls_defs = [ fmt_docstr(cname + (f' (size = {size})' if size else '')) ]
-			for name, field in ct.fields or []:
-				docstring = '\n' + fmt_docstr('\n' + fmt_c_block(fmt_var(field.type, name)))
-				cls_defs.append(name + ': ' + type_exprs[field.type.cname] + docstring)
-			types_defs.append(f'class {type_expr}({cdata_type}):\n' + indent('\n'.join(cls_defs or ['pass'])))
-			type_expr = types_ident(type_expr)
+				ident = f'anon_{ct.kind}_{n}'
+			def delayed_def():
+				size = type_size[cname]
+				cls_defs = [ fmt_docstr(cname + (f' (size = {size})' if size else '')) ]
+				for name, field in ct.fields or []:
+					docstring = '\n' + fmt_docstr('\n' + fmt_c_block(fmt_var(field.type, name)))
+					cls_defs.append(name + ': ' + type_exprs[field.type.cname] + docstring)
+				return f'class {ident}({cdata_type}):\n' + indent('\n'.join(cls_defs or ['pass']))
+			types_defs.append(delayed_def)
+			type_expr = types_ident(ident)
 		elif ct.kind == 'void':
 			raise AssertionError('tried to invoke codegen for void type')
 		elif ct.kind == 'pointer' or ct.kind == 'array':
