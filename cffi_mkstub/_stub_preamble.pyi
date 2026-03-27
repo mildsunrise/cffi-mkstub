@@ -12,16 +12,25 @@ class _CDataBase:
 	def __bool__(self) -> bool: ...
 	def __hash__(self) -> int: ...
 
-class IntPrimitive(_CDataBase):
+class IntCData(_CDataBase):
 	def __int__(self) -> int: ...
-	def __eq__(self, other: IntPrimitive, /) -> bool: ...  # type: ignore[override]
-	def __ne__(self, other: IntPrimitive, /) -> bool: ...  # type: ignore[override]
-	def __ge__(self, other: IntPrimitive, /) -> bool: ...
-	def __gt__(self, other: IntPrimitive, /) -> bool: ...
-	def __le__(self, other: IntPrimitive, /) -> bool: ...
-	def __lt__(self, other: IntPrimitive, /) -> bool: ...
+	def __eq__(self, other: IntCData, /) -> bool: ...  # type: ignore[override]
+	def __ne__(self, other: IntCData, /) -> bool: ...  # type: ignore[override]
+	def __ge__(self, other: IntCData, /) -> bool: ...
+	def __gt__(self, other: IntCData, /) -> bool: ...
+	def __le__(self, other: IntCData, /) -> bool: ...
+	def __lt__(self, other: IntCData, /) -> bool: ...
 
-class EnumCData(IntPrimitive):
+class IntPrimitive(IntCData):
+	pass
+
+class EnumCData(IntCData):
+	pass
+
+class FunctionCData(_CDataBase):
+	def __call__(self, *args: InValue) -> OutValue | None: ...
+
+class CompositeCData(_CDataBase):
 	pass
 
 class FloatPrimitive(_CDataBase):
@@ -95,3 +104,6 @@ class buffer:
 _tmp_buffer = buffer
 
 ErrorCallback: TypeAlias = Callable[[Exception, Any, TracebackType], Any]
+
+OutValue: TypeAlias = Union[PointerBase[Any], FunctionCData, CompositeCData, int, bool, float, FloatPrimitive, complex, bytes, str]
+InValue: TypeAlias = Union[_CDataBase, OutValue]

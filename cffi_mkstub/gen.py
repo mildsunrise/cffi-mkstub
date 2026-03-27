@@ -310,7 +310,6 @@ def format_type_hints(
 
 	type_exprs: dict[str, str] = keydefaultdict(lambda key: type_codegen_data[key][0])
 
-	cdata_type = '_CDataBase'
 	def types_ident(x: str): return types_ns_name + '.' + x
 
 	types_defs: list[str] = []
@@ -362,7 +361,7 @@ def format_type_hints(
 				for name, field in ct.fields or []:
 					docstring = '\n' + fmt_docstr('\n' + fmt_c_block(fmt_var(field.type, name)))
 					cls_defs.append(name + ': ' + type_exprs[field.type.cname] + docstring)
-				return f'class {ident}({cdata_type}):\n' + indent('\n'.join(cls_defs or ['pass']))
+				return f'class {ident}(CompositeCData):\n' + indent('\n'.join(cls_defs or ['pass']))
 			types_defs.append(delayed_def)
 			type_expr = types_ident(ident)
 		elif ct.kind == 'void':
@@ -389,10 +388,14 @@ def format_type_hints(
 			arg_exprs = ['self']
 			arg_exprs.extend( f'arg{i+1}: {type_codegen_data[arg.cname][1]}' for i, arg in enumerate(ct.args) )
 			arg_exprs.append('/')
-			if ct.ellipsis: arg_exprs.append(f'*args: {cdata_type}')
+			if ct.ellipsis: arg_exprs.append(f'*args: _CDataBase')
 			docstring = fmt_docstr('function pointer type:\n' + fmt_c_block(cname)) + '\n'
-			cls_defs = docstring + f'def __call__({", ".join(arg_exprs)}) -> {result}: ...'
-			types_defs.append(f'class {ident}({cdata_type}):\n' + indent(cls_defs))
+			# python seems to have nothing akin to ... (e.g. gradual typing wrt number of args) for classes.
+			# therefore the general __call__ signature in FunctionCData has an *args argument, which means
+			# this subclass violates LSP since it only allows a specific number of arguments... ignore the
+			# error for now, making sure it applies only to the __call__ line
+			cls_defs = docstring + 'def __call__( # type: ignore\n' + _indent_prefix + ", ".join(arg_exprs) + f'\n) -> {result}: ...'
+			types_defs.append(f'class {ident}(FunctionCData):\n' + indent(cls_defs))
 			type_expr = types_ident(ident)
 		elif ct.kind == 'enum':
 			type_expr = 'int'
@@ -518,15 +521,15 @@ def format_type_hints(
 	integral_primitives = [name for name, p in PRIMITIVES.items() if p.expr in {'int', 'bool'} or 'char' in name]
 	cast_overloads = [
 		# FIXME: for now only primitives, enums and pointers are supported
-		('IntPrimitive', [*integral_primitives, 'bool'],
-			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]']),
+		('IntCData', [*integral_primitives, 'bool'],
+			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]']),
 		('FloatPrimitive', ["float", "double", "long double"],
-			['int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive']),
+			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive']),
 		('ComplexPrimitive', ['float _Complex', 'double _Complex', '_cffi_float_complex_t', '_cffi_double_complex_t'],
-			['complex', 'ComplexPrimitive', 'int', 'IntPrimitive', 'bool', 'float', 'FloatPrimitive']),
+			['complex', 'ComplexPrimitive', 'int', 'IntCData', 'bool', 'float', 'FloatPrimitive']),
 		('EnumCData', [name for name, (ct, _) in ctypes.items() if ct.kind == 'enum'],
-			['int', 'IntPrimitive', 'bool']),
-		*( (type_exprs[ct.cname], [ct.cname], ['int', 'IntPrimitive', 'PointerBase[object]'])
+			['int', 'IntCData', 'bool']),
+		*( (type_exprs[ct.cname], [ct.cname], ['int', 'IntCData', 'PointerBase[object]'])
 			for ct, _ in ctypes.values() if ct.kind == 'pointer' or ct.kind == 'function' ),
 	]
 	def expand_cnames(cnames: list[str]):
@@ -540,7 +543,7 @@ def format_type_hints(
 		(f'T', 'self, cdata: Pointer[T], index: int, /', 'Pointer[T]'),
 		# presumably only sized cdata objects can exist in the wild, so this is guaranteed
 		# to return a pointer to sized type and we don't have to restrict it
-		(f'T: {cdata_type}', 'self, cdata: T, /', 'Pointer[T]'),
+		(f'T: _CDataBase', 'self, cdata: T, /', 'Pointer[T]'),
 		# specialized signatures for struct/union fields
 		*( (f'self, cdata: {type_exprs[ct.cname]}, field: Literal[{name!r}], /',
 	  		('Pointer' if type_size[ct.cname] != None else 'PointerBase') + '[' + type_exprs[field.type.cname] + ']')
