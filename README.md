@@ -30,11 +30,13 @@ A major consequence of this can be seen in `ffi` methods that accept C type expr
 
 Another consequence is type conversions. cffi is very lenient with what it accepts, e.g. on a parameter of C type `int` you can pass a Python `int` or an integer CData or an enum CData. The stubs currently only allow `int`, because this is what cffi returns when converting in the other direction.
 
+Also, despite cffi allowing passing CType objects instead of C type strings (and it being more performant) the stubs only allow the latter, since the typechecker can't tell which type you want when using the former.
+
 ## Status
 
 Despite the above, the aim is still to eventually expose all *functionality* of cffi (even if through a restricted set of API usages). Even though this project is in the proof of concept stage (and I'm depressed so manage your expectations about my ability to improve and maintain it) it's already mature enough to cover most of the functionality, and I'm using it on my projects. Some notable limitations:
 
- - Pylance (or maybe Pyright itself, or the VSCode extension) seems to be very bad at handling methods with lots of overloads. In particular it freezes when the cursor is inside of a call like `ffi.new()` and it attempts to display the parameters, to the point where I have to restart the language server. Short of cffi adding new per-ctype APIs (which would greatly reduce the number of overloads in a single function) there isn't much we can do to work around it.
+ - The VSCode Pylance extension (or maybe Pyright itself) seems to be very bad at handling methods with lots of overloads. In particular Python analysis stops working when the cursor is inside of a call accepting a C type string (like `ffi.new()`) and it attempts to display the parameters, to the point where I have to restart the extension host (restarting the language server alone doesn't help). Short of cffi adding new per-ctype APIs (which would greatly reduce the number of overloads in a single function) there isn't much we can do to work around it.
 
  - When calling `ffi.addressof()` with a field name, Pylance will fail to filter valid names according to the type being passed (it will show all member names of all types). Typechecking still works correctly, i.e. an error will result if the member name of another struct is passed.
 
@@ -46,6 +48,8 @@ Despite the above, the aim is still to eventually expose all *functionality* of 
    ~~~
 
  - Included FFI objects (`ffi/ffibuilder.include(other_ffi)`) are currently ignored.
+
+ - `ffi.NULL` isn't accepted as a function pointer, you have to `cast` or ignore the error in those cases.
 
 One of the priorities right now is to make it (both the generated stubs, and with less priority, the generator itself) more compatible with older typecheckers / Python runtimes. It has only been tested with Python 3.13 so far.
 
