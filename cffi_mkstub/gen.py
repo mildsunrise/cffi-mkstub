@@ -522,14 +522,14 @@ def format_type_hints(
 	cast_overloads = [
 		# FIXME: for now only primitives, enums and pointers are supported
 		('IntCData', [*integral_primitives, 'bool'],
-			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]']),
+			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]', 'FunctionCData']),
 		('FloatPrimitive', ["float", "double", "long double"],
 			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive']),
 		('ComplexPrimitive', ['float _Complex', 'double _Complex', '_cffi_float_complex_t', '_cffi_double_complex_t'],
 			['complex', 'ComplexPrimitive', 'int', 'IntCData', 'bool', 'float', 'FloatPrimitive']),
 		('EnumCData', [name for name, (ct, _) in ctypes.items() if ct.kind == 'enum'],
 			['int', 'IntCData', 'bool']),
-		*( (type_exprs[ct.cname], [ct.cname], ['int', 'IntCData', 'PointerBase[object]'])
+		*( (type_exprs[ct.cname], [ct.cname], ['int', 'IntCData', 'PointerBase[object]', 'FunctionCData'])
 			for ct, _ in ctypes.values() if ct.kind == 'pointer' or ct.kind == 'function' ),
 	]
 	def expand_cnames(cnames: list[str]):
