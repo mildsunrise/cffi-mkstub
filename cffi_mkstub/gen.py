@@ -55,7 +55,7 @@ FFI_DEFS = '''
 CData: TypeAlias = _CDataBase
 buffer: TypeAlias = _tmp_buffer  # noqa: Y042
 
-NULL: PointerBase[object]
+NULL: Pointer[Any]
 
 def dlclose(self, lib: Lib, /) -> None: ...
 if sys.platform == "win32":
