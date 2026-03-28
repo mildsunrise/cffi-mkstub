@@ -12,44 +12,44 @@ class CField:
 	offset: int
 	type: 'CType'
 
-class _CTypeEnum(Protocol):
+class CTypeEnum(Protocol):
 	cname: str
 	kind: Literal['enum']
 	relements: dict[str, int]
 	elements: dict[int, str]
 
-class _CTypePrimitive(Protocol):
+class CTypePrimitive(Protocol):
 	cname: str
 	kind: Literal['primitive']
 
-class _CTypePointer(Protocol):
+class CTypePointer(Protocol):
 	cname: str
 	kind: Literal['pointer']
 	item: 'CType'
 
-class _CTypeArray(Protocol):
+class CTypeArray(Protocol):
 	cname: str
 	kind: Literal['array']
 	item: 'CType'
 	length: Optional[int]
 	''' amount of elements if known (`T[N]`), or None if unknown (`T[]`) '''
 
-class _CTypeVoid(Protocol):
+class CTypeVoid(Protocol):
 	cname: Literal['void']
 	kind: Literal['void']
 
-class _CTypeStruct(Protocol):
+class CTypeStruct(Protocol):
 	cname: str
 	kind: Literal['struct']
 	fields: Optional[list[tuple[str, CField]]]
 
-class _CTypeUnion(Protocol):
+class CTypeUnion(Protocol):
 	cname: str
 	kind: Literal['union']
 	fields: Optional[list[tuple[str, CField]]]
 
 ''' function pointer '''
-class _CTypeFunction(Protocol):
+class CTypeFunction(Protocol):
 	cname: str
 	kind: Literal['function']
 	abi: int
@@ -57,7 +57,7 @@ class _CTypeFunction(Protocol):
 	ellipsis: bool
 	result: 'CType'
 
-CType: TypeAlias = Union[_CTypeEnum, _CTypePrimitive, _CTypePointer, _CTypeArray, _CTypeVoid, _CTypeStruct, _CTypeUnion, _CTypeFunction]
+CType: TypeAlias = Union[CTypeEnum, CTypePrimitive, CTypePointer, CTypeArray, CTypeVoid, CTypeStruct, CTypeUnion, CTypeFunction]
 
 class _CDataBase:
 	def __enter__(self) -> Self: ...

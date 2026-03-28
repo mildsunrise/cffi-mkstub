@@ -586,7 +586,7 @@ def format_type_hints(
 		*((gen_literal(*type_names), [kind]) for kind, type_names in types_by_kind.items() ),
 	]
 	def_overloaded('typeof',
-		*( (f'self, arg: {in_type}, /', gen_union(*('_CType' + kind.capitalize() for kind in out_kinds)))
+		*( (f'self, arg: {in_type}, /', gen_union(*('CType' + kind.capitalize() for kind in out_kinds)))
 			for in_type, out_kinds in typeof_overloads ),
 		# we'd usually not include a fallback overload, but i think here it's acceptable
 		(f'self, arg: {gen_union("_CDataBase", "str")}, /', 'CType'),
