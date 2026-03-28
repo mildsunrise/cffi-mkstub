@@ -49,7 +49,7 @@ with open(os.path.join(_dirname, '_stub_preamble.pyi')) as f:
 	PREAMBLE = f.read()
 
 # definitions of FFI that reference Lib, and thus we need to reproduce in our
-# type hints so that Lib points to the right type. copied from typeshed.
+# type hints so that Lib points to the right type. adapted from typeshed.
 # in the future, FFI would ideally be made generic in Lib and this would no
 # longer be needed
 FFI_DEFS = '''
@@ -57,6 +57,9 @@ CData: TypeAlias = _CDataBase
 buffer: TypeAlias = _tmp_buffer  # noqa: Y042
 
 NULL: Pointer[Any]
+
+def new_handle(self, python_obj: object, /) -> PointerBase[object]: ...
+def from_handle(self, handle: PointerBase[object], /) -> Any: ...
 
 def dlclose(self, lib: Lib, /) -> None: ...
 if sys.platform == "win32":
