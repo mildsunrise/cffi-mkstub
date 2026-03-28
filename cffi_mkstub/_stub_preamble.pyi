@@ -1,9 +1,63 @@
-from typing import SupportsIndex, TypeAlias, Self, Iterator, Union, Any, Literal, Callable, overload, final
+from typing import SupportsIndex, TypeAlias, Self, Iterator, Union, Any, Literal, Callable, Protocol, Optional, overload, final
 from _typeshed import ReadableBuffer
 from types import TracebackType
 import _cffi_backend
 # needed for conditional definitions in FFI, see below
 import sys
+
+class CField:
+	bitshift: int
+	bitsize: int
+	flags: int
+	offset: int
+	type: 'CType'
+
+class _CTypeEnum(Protocol):
+	cname: str
+	kind: Literal['enum']
+	relements: dict[str, int]
+	elements: dict[int, str]
+
+class _CTypePrimitive(Protocol):
+	cname: str
+	kind: Literal['primitive']
+
+class _CTypePointer(Protocol):
+	cname: str
+	kind: Literal['pointer']
+	item: 'CType'
+
+class _CTypeArray(Protocol):
+	cname: str
+	kind: Literal['array']
+	item: 'CType'
+	length: Optional[int]
+	''' amount of elements if known (`T[N]`), or None if unknown (`T[]`) '''
+
+class _CTypeVoid(Protocol):
+	cname: Literal['void']
+	kind: Literal['void']
+
+class _CTypeStruct(Protocol):
+	cname: str
+	kind: Literal['struct']
+	fields: Optional[list[tuple[str, CField]]]
+
+class _CTypeUnion(Protocol):
+	cname: str
+	kind: Literal['union']
+	fields: Optional[list[tuple[str, CField]]]
+
+''' function pointer '''
+class _CTypeFunction(Protocol):
+	cname: str
+	kind: Literal['function']
+	abi: int
+	args: tuple['CType', ...]
+	ellipsis: bool
+	result: 'CType'
+
+CType: TypeAlias = Union[_CTypeEnum, _CTypePrimitive, _CTypePointer, _CTypeArray, _CTypeVoid, _CTypeStruct, _CTypeUnion, _CTypeFunction]
 
 class _CDataBase:
 	def __enter__(self) -> Self: ...

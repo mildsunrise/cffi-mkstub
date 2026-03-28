@@ -3,6 +3,7 @@ from typing import Callable, Union, Literal, NoReturn, TypeAlias, TYPE_CHECKING,
 import re
 from dataclasses import dataclass
 import textwrap
+from collections import defaultdict
 
 if TYPE_CHECKING:
 	from cffi_types import FFI, CType, CGlobal
@@ -570,6 +571,25 @@ def format_type_hints(
 		('self, cdata: Pointer[bytes], length: int', 'bytes'), # same hack as above applies here
 		('self, cdata: Pointer[str], length: int', 'str'),
 		('T', 'self, cdata: Pointer[T], length: int', 'list[T]'),
+	)
+
+	types_by_kind: dict[str, list[str]] = defaultdict(list)
+	for cname, (ct, _) in ctypes.items():
+		types_by_kind[ct.kind].extend(ctype_names(ct))
+	typeof_overloads: list[tuple[str, list[str]]] = [
+		('EnumCData', ['enum']),
+		('FunctionCData', ['function']),
+		('Array[object]', ['array']),
+		(gen_union('IntPrimitive', 'FloatPrimitive', 'ComplexPrimitive'), ['primitive']),
+		('PointerBase[object]', ['pointer', 'array']),
+		('CompositeCData', ['union', 'struct']),
+		*((gen_literal(*type_names), [kind]) for kind, type_names in types_by_kind.items() ),
+	]
+	def_overloaded('typeof',
+		*( (f'self, arg: {in_type}, /', gen_union(*('_CType' + kind.capitalize() for kind in out_kinds)))
+			for in_type, out_kinds in typeof_overloads ),
+		# we'd usually not include a fallback overload, but i think here it's acceptable
+		(f'self, arg: {gen_union("_CDataBase", "str")}, /', 'CType'),
 	)
 
 	types_ns_out = f'class {types_ns_name}:\n{indent("\n\n".join(types_defs or ["pass"]))}'
