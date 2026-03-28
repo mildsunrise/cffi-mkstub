@@ -198,6 +198,11 @@ def format_type_hints(
 		return f'{name}: TypeAlias = {expr}'
 	def gen_literal(*values: Union[int, str, bool]):
 		return f'Literal[{", ".join(map(repr, values))}]'
+	def gen_union(*types: str):
+		assert types, 'no types passed to union'
+		if len(types) == 1:
+			return types[0]
+		return f'Union[{", ".join(types)}]'
 	def fmt_docstr(text: str):
 		return f"''' {text} '''"
 	def fmt_c_block(text: str):
@@ -409,7 +414,7 @@ def format_type_hints(
 		call_arg_type_expr = type_expr
 		if ct.kind == 'pointer' and ct.item.kind == 'primitive' and \
 			(base_ptype := PRIMITIVES[ct.item.cname].expr) in {'str', 'bytes'}:
-			call_arg_type_expr = f'Union[{type_expr}, {base_ptype}]'
+			call_arg_type_expr = gen_union(type_expr, base_ptype)
 
 		for typedef in typedefs:
 			types_defs.append(gen_type_alias(sanitize_typedef_name(typedef), type_expr))
@@ -486,14 +491,14 @@ def format_type_hints(
 			return f'{item_init} = ...'
 		init = f'tuple[{item_init}, ...]'
 		if ct.item.cname in {'char', 'signed char', 'unsigned char', 'uint8_t', 'int8_t'}:
-			init = f'Union[bytes, {init}]'
+			init = gen_union('bytes', init)
 		if ct.item.cname in {'wchar_t', 'char16_t', 'char32_t'}:
-			init = f'Union[str, {init}]'
+			init = gen_union('str', init)
 		if ct.length != None:
 			if ct.length <= 5:
 				return f'tuple[{", ".join([item_init] * ct.length)}] = ...'
 			return f'{init} = ...'
-		return f'Union[int, {init}]'
+		return gen_union('int', init)
 
 	def_overloaded('new',
 		*( (f'self, ctype: {gen_literal(*ctype_names(ct))}, init: {init}, /', type_exprs[ct.cname])
@@ -535,7 +540,7 @@ def format_type_hints(
 	def expand_cnames(cnames: list[str]):
 		return ( x for cname in cnames for x in (ctype_names(ctypes[cname][0]) if cname in ctypes else [cname]) )
 	def_overloaded('cast',
-		*( (f'self, ctype: {gen_literal(*expand_cnames(dst_types))}, value: Union[{", ".join(src)}], /', dst) for dst, dst_types, src in cast_overloads )
+		*( (f'self, ctype: {gen_literal(*expand_cnames(dst_types))}, value: {gen_union(*src)}, /', dst) for dst, dst_types, src in cast_overloads )
 	)
 
 	composites = [ ct for ct, _ in ctypes.values() if ct.kind == 'struct' or ct.kind == 'union' ]
