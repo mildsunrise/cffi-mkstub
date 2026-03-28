@@ -1,5 +1,5 @@
 from typing import SupportsIndex, TypeAlias, Self, Iterator, Union, Any, Literal, Callable, Protocol, Optional, overload, final
-from _typeshed import ReadableBuffer
+from _typeshed import ReadableBuffer, WriteableBuffer
 from types import TracebackType
 import _cffi_backend
 # needed for conditional definitions in FFI, see below

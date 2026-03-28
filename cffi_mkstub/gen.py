@@ -290,6 +290,9 @@ def format_type_hints(
 			add_ctype(cglobal.type, ('global', cglobal))
 		else:
 			assert_never(cglobal)
+	# we need codegen for those types for the ffi APIs, so always visit them
+	add_ctype(ffi.typeof('char'), None)
+	add_ctype(ffi.typeof('wchar_t'), None)
 
 	cname_position: dict[str, int] = {}
 	# cffi does not expose the ct_name_position, but we can infer it by comparing cname with the array type cname:
@@ -516,6 +519,7 @@ def format_type_hints(
 		arg_types = [ type_exprs[arg.cname] for arg in ct.args ]
 		return f'Callable[[{", ".join(arg_types)}], {result_type}]'
 
+	# FIXME: more precise decorator out type (generic in the argument)
 	def_overloaded('def_extern',
 		*( (f'self, name: {gen_literal(name)}, error: Any = ..., onerror: ErrorCallback = ...', f'Callable[[{cexpr}], {cexpr}]')
 			for name, cg in cglobals.items() if cg.kind == 'python_function' and (cexpr := callable_expr(cg.type)) )
@@ -531,7 +535,7 @@ def format_type_hints(
 	cast_overloads = [
 		# FIXME: for now only primitives, enums and pointers are supported
 		('IntCData', [*integral_primitives, 'bool'],
-			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]', 'FunctionCData']),
+			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive', 'PointerBase[object]', 'FunctionCData', type_exprs['char'], type_exprs['wchar_t']]),
 		('FloatPrimitive', ["float", "double", "long double"],
 			['int', 'IntCData', 'bool', 'float', 'FloatPrimitive']),
 		('ComplexPrimitive', ['float _Complex', 'double _Complex', '_cffi_float_complex_t', '_cffi_double_complex_t'],
@@ -593,6 +597,22 @@ def format_type_hints(
 			for in_type, out_kinds in typeof_overloads ),
 		# we'd usually not include a fallback overload, but i think here it's acceptable
 		(f'self, arg: {gen_union("_CDataBase", "str")}, /', 'CType'),
+	)
+
+	def from_buffer_overload(cdecl_type: Union[str, None], out_type: str):
+		extra_args = f'cdecl: {cdecl_type}, ' if cdecl_type else ''
+		# cffi is buggy, and a call like `ffi.from_buffer(python_buffer=buffer)` will fail,
+		# so disregard it by making python_buffer a positional-only argument for now
+		marker = '' if cdecl_type else '/, '
+		return [
+			('self, ' + extra_args + 'python_buffer: ReadableBuffer, ' + marker + 'require_writable: Literal[False] = ...', out_type),
+			('self, ' + extra_args + 'python_buffer: WriteableBuffer, ' + marker + 'require_writable: Literal[True]', out_type),
+		]
+	def_overloaded('from_buffer',
+		*(from_buffer_overload(None, type_exprs['char[]'])),
+		*( o for cname, (ct, _) in ctypes.items()
+			if (ct.kind == 'array' or ct.kind == 'pointer') and type_size[ct.item.cname] != None
+			for o in from_buffer_overload(gen_literal(*ctype_names(ct)), type_exprs[cname]) )
 	)
 
 	types_ns_out = f'class {types_ns_name}:\n{indent("\n\n".join(types_defs or ["pass"]))}'
